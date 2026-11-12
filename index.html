@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Widget Studio · KWGT preset editor</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <style>
 :root{--bg:#eceff4;--pn:#fbfbfd;--ink:#171a2b;--mu:#667086;--ln:#d3d8e2;--ac:#5b3df5;--gr:#dde2ea;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10121c;--pn:#181b29;--ink:#e8eaf4;--mu:#8b93a9;--ln:#2a2f44;--ac:#8d78ff;--gr:#1b1f30;color-scheme:dark}}
@@ -40,10 +40,10 @@ header label{display:flex;gap:4px;align-items:center;color:var(--mu)}
 <button id="un">Undo</button><button id="re">Redo</button><button id="zo" title="Zoom out">−</button><button id="zf" title="Fit to screen">Fit</button><button id="zi" title="Zoom in">+</button><label><input type="checkbox" id="sn" checked>Snap</label><button id="th">Theme</button><button id="im">Open file</button><input type="file" id="fi" accept=".json,.kwgt,.zip" hidden><button id="dj">Save .json</button><button id="dz">Save .zip</button><button id="ex" class="p">Copy preset.json</button></header>
 <main>
 <aside id="L"><div class="tb"><select id="ty" aria-label="Module type"><option>ShapeModule</option><option>TextModule</option><option>FontIconModule</option><option>OverlapLayerModule</option><option>StackLayerModule</option><option>BitmapModule</option><option>KomponentModule</option></select><button id="ad">Add</button></div>
-<div class="tb"><button id="dp">Duplicate</button><button id="up">Up</button><button id="dn">Down</button><button id="dl">Delete</button></div>
+<div class="tb"><button id="cp" title="Ctrl/Cmd+C">Copy</button><button id="pa" title="Ctrl/Cmd+V">Paste</button><button id="dp">Duplicate</button><button id="up">Up</button><button id="dn">Down</button><button id="dl">Delete</button></div>
 <div class="al" id="al" role="toolbar" aria-label="Align and distribute"></div><div id="tr"></div>
 <h2>Canvas</h2><div class="f"><div><input id="pw" type="number" aria-label="Width"><input id="ph" type="number" aria-label="Height"></div></div>
-<p class="note">First item in a list is the bottom layer, like in KWGT. Shift-click layers to select several, then align or distribute them. Arrow keys nudge (Shift = 10px). Hold Alt while dragging to skip snapping. Ctrl/Cmd + scroll zooms.</p></aside>
+<h2>Match the KWGT preview</h2><div class="f"><label for="rf">Reference screenshot (from the KWGT app)</label><div><input id="rf" type="file" accept="image/*"></div></div><div class="f"><label for="ro">Reference opacity</label><div><input id="ro" type="range" min="0" max="100" value="50"><button id="rc">Clear</button></div></div><div class="f"><label for="bk">Backdrop</label><div><select id="bk" class="v"><option value="0">Dark wallpaper</option><option value="1">Light wallpaper</option><option value="2">Transparent grid</option></select></div></div><p class="note">First item in a list is the bottom layer, like in KWGT. Shift-click layers to select several, then align or distribute them. Arrow keys nudge (Shift = 10px). Hold Alt while dragging to skip snapping. Ctrl/Cmd + scroll zooms.</p></aside>
 <section id="S"><div id="fr"><div id="cv"></div></div></section>
 <aside id="R"><div class="tabs"><button data-t="p">Props</button><button data-t="g">Globals</button><button data-t="s">Simulate</button><button data-t="j">JSON</button></div><div id="pn"></div></aside>
 </main>
@@ -60,7 +60,7 @@ viewgroup_items:[
 {internal_type:"ShapeModule",shape_type:"RECT",shape_width:200,shape_height:10,shape_corners:360,paint_color:"#FF7C5CFF",position_padding_left:30,position_padding_top:158,internal_toggles:{shape_width:10,paint_color:100},internal_formulas:{shape_width:"$gv(pbw)*bi(level)/100$"},internal_globals:{paint_color:"accent"}},
 {internal_type:"FontIconModule",icon_icon:"battery_charging_full",icon_size:30,paint_color:"#FFFFFFFF",position_anchor:"TOPRIGHT",position_padding_right:26,position_padding_top:24}
 ]}};
-let sel=[1],sels=[[1]],zm=1,snapOn=true,tab="p",sim={battery:76,percent:40,dark:0},LV={},H=[],hi=-1,scale=1;
+let sel=[1],sels=[[1]],zm=1,snapOn=true,refImg=null,refOp=.5,bk=0,clip=null,tab="p",sim={battery:76,percent:40,dark:0},LV={},H=[],hi=-1,scale=1;
 const root=()=>P.preset_root,kids=m=>m.viewgroup_items||(m.viewgroup_items=[]);
 const getM=p=>p.reduce((m,i)=>kids(m)[i],root());
 const isC=m=>/Root|Overlap|Stack|Komponent/.test(m.internal_type);
@@ -113,7 +113,7 @@ const css=c=>{c=String(c||"");if(/^#[0-9a-f]{8}$/i.test(c))return`rgba(${parseIn
 const cx=document.createElement("canvas").getContext("2d");
 function meas(m){const t=m.internal_type;
 if(t=="ShapeModule")return{w:N(m,"shape_width",100),h:N(m,"shape_height",100)};
-if(t=="TextModule"){const s=N(m,"text_size",24),L=String(evalText(val(m,"text_expression",""))).replace(/\[\/?[a-z]+\]/g,"").split("\n");cx.font=`${s}px system-ui`;return{w:Math.max(...L.map(l=>cx.measureText(l).width))+2,h:s*1.2*L.length}}
+if(t=="TextModule"){const s=N(m,"text_size",24),L=String(evalText(val(m,"text_expression",""))).replace(/\[\/?[a-z]+\]/g,"").split("\n");cx.font=`${s}px Roboto,system-ui,sans-serif`;return{w:Math.max(...L.map(l=>cx.measureText(l).width)),h:s*1.172*L.length}}
 if(t=="FontIconModule"){const s=N(m,"icon_size",24);return{w:s,h:s}}
 if(t=="BitmapModule")return{w:N(m,"bitmap_width",100),h:N(m,"bitmap_height",100)};
 if(t=="StackLayerModule"){const v=/VERTICAL/.test(m.config_stacking||""),g=N(m,"config_margin",0),k=kids(m).filter(vis).map(meas);return v?{w:Math.max(0,...k.map(x=>x.w)),h:k.reduce((a,x)=>a+x.h+g,-g)||0}:{w:k.reduce((a,x)=>a+x.w+g,-g)||0,h:Math.max(0,...k.map(x=>x.h))}}
@@ -123,13 +123,13 @@ function put(m,par,pw,ph,path,pos){const s=meas(m),t=m.internal_type,el=document
 const an=m.position_anchor||"TOPLEFT",ax=/RIGHT/.test(an)?pw-s.w:/CENTER$|^CENTER$|^BOTTOM$|^TOP$/.test(an)?(pw-s.w)/2:0,ay=/^BOTTOM/.test(an)?ph-s.h:/^CENTER/.test(an)?(ph-s.h)/2:0;
 const pl=N(m,"position_padding_left",0),pr=N(m,"position_padding_right",0),pt=N(m,"position_padding_top",0),pb=N(m,"position_padding_bottom",0);
 let x=(pos?pos.x:ax+pl-pr)+N(m,"position_offset_x",0),y=(pos?pos.y:ay+pt-pb)+N(m,"position_offset_y",0);
-el.style.cssText=`left:${x}px;top:${y}px;width:${s.w}px;height:${s.h}px`;
+el.style.cssText=`left:${Math.round(x)}px;top:${Math.round(y)}px;width:${s.w}px;height:${s.h}px`;
 const col=css(val(m,"paint_color","#FFFFFFFF"));
 if(t=="ShapeModule"){const ty=m.shape_type||"RECT",cr=N(m,"shape_corners",0),sw=N(m,"paint_stroke",0);
 el.style.borderRadius=ty=="CIRCLE"?"50%":Math.min(cr,Math.min(s.w,s.h)/2)+"px";
 if(sw>0){el.style.border=`${sw}px solid ${col}`;el.style.boxSizing="border-box"}else el.style.background=ty=="ARC"?`conic-gradient(from -90deg,${col} ${N(m,"shape_angle",90)}deg,transparent 0)`:col}
 if(t=="TextModule"){let h=String(evalText(val(m,"text_expression",""))).replace(/\[b\](.*?)\[\/b\]/g,"<b>$1</b>").replace(/\[\/?[a-z]+\]/g,"");el.innerHTML=h.replace(/&/g,"&amp;").replace(/<(?!\/?b>)/g,"&lt;").replace(/\n/g,"<br>");
-Object.assign(el.style,{color:col,fontSize:N(m,"text_size",24)+"px",lineHeight:"1.2",whiteSpace:"nowrap",fontFamily:"system-ui",textAlign:(m.text_align||"LEFT").toLowerCase()})}
+Object.assign(el.style,{color:col,fontSize:N(m,"text_size",24)+"px",lineHeight:"1.172",whiteSpace:"nowrap",fontFamily:"Roboto,system-ui,sans-serif",textAlign:(m.text_align||"LEFT").toLowerCase()})}
 if(t=="FontIconModule"){el.className="material-icons";Object.assign(el.style,{color:col,fontSize:s.w+"px",lineHeight:"1"});el.textContent=String(val(m,"icon_icon","star"))}
 if(t=="BitmapModule"){const fc=css(val(m,"bitmap_filter_color","#FF8A8FA3"));Object.assign(el.style,{background:"repeating-linear-gradient(45deg,#8883 0 6px,#8881 6px 12px)",border:`1px dashed ${m.bitmap_filter=="COLORIZE"?fc:"#8a8fa3"}`,boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",color:"#8a8fa3",fontSize:"12px"});el.textContent="image"}
 if(isC(m)||t=="StackLayerModule"){if(m.fx_mask=="CLIP_ALL")el.style.overflow="hidden";const r=N(m,"config_fx_radius",0);if(r)el.style.borderRadius=r+"px";
@@ -139,10 +139,11 @@ if(t=="StackLayerModule"){const v=/VERTICAL/.test(m.config_stacking||""),g=N(m,"
 else if(isC(m))kids(m).forEach((k,i)=>vis(k)&&put(k,el,s.w,s.h,path.concat(i)));
 return el}
 function syncSel(){const k=sel.join();if(!sel.length){sels=[];return}if(!sels.some(s=>s.join()==k))sels=[sel]}
-function draw(){syncSel();const cv=$("#cv"),W=P.preset_info.width,Hh=P.preset_info.height;cv.innerHTML="";cv.style.cssText=`width:${W}px;height:${Hh}px;transform:scale(${scale})`;
+function draw(){syncSel();const cv=$("#cv"),W=P.preset_info.width,Hh=P.preset_info.height;cv.innerHTML="";cv.style.cssText=`width:${W}px;height:${Hh}px;transform:scale(${scale});background:${BK[bk]}`;
 $("#fr").style.cssText=`width:${W*scale}px;height:${Hh*scale}px`;
 kids(root()).forEach((k,i)=>vis(k)&&put(k,cv,W,Hh,[i]));
-sels.forEach(s=>{const e=cv.querySelector(`[data-p="${s.join(",")}"]`);if(e)e.classList.add("sel")})}
+sels.forEach(s=>{const e=cv.querySelector(`[data-p="${s.join(",")}"]`);if(e)e.classList.add("sel")});if(refImg){const i=new Image();i.src=refImg;i.alt="";i.style.cssText=`position:absolute;left:0;top:0;width:100%;height:100%;opacity:${refOp};pointer-events:none`;cv.appendChild(i)}}
+const BK=["linear-gradient(160deg,#2b2f4a,#0e1020)","linear-gradient(160deg,#dfe6f2,#b9c4d8)","repeating-conic-gradient(#8884 0 25%,#8882 0 50%) 0 0/16px 16px"];
 function fit(){const w=$("#S").clientWidth-48;scale=Math.max(.2,Math.min(4,w/P.preset_info.width*zm))}
 /* ---------- tree ---------- */
 function lbl(m){const t=m.internal_type.replace("Module","").replace("LayerModule","");const x=m.text_expression||m.icon_icon||m.shape_type||"";return[t,String(x).slice(0,22)]}
@@ -171,7 +172,7 @@ row.append(ms,inp);if(kind=="c"&&tg==0){const c=String(m[k]||"#FFFFFFFF"),pk=mk(
 f.append(row);return f}
 function pane(){const B=$("#pn");B.innerHTML="";document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t==tab));
 if(tab=="p"){if(!sel.length){B.append(mk("h2",{},"Root"),mk("p",{className:"note"},"Select a layer to edit it. Root size is set in the left panel."));return}
-const m=getM(sel);B.append(mk("h2",{},m.internal_type));(SCH[m.internal_type]||[]).forEach(s=>B.append(field(m,s)));B.append(mk("h2",{},"Position"));POS.forEach(s=>B.append(field(m,s)));
+const m=getM(sel);B.append(mk("h2",{},m.internal_type));(SCH[m.internal_type]||[]).forEach(s=>B.append(field(m,s)));B.append(mk("h2",{},"Position"),anchorPicker(m));POS.forEach(s=>B.append(field(m,s)));
 B.append(mk("p",{className:"note"},"Formula and Global sources set internal_toggles for you (10 = formula, 100 = global)."));B.append(rawEd(m))}
 if(tab=="g"){const G=root().globals_list||(root().globals_list={});Object.keys(G).forEach(n=>{const g=G[n],r=mk("div",{className:"gl"}),nm=mk("input",{value:n,ariaLabel:"Name"}),ty=mk("select",{ariaLabel:"Type"},"<option>COLOR</option><option>NUMBER</option><option>TEXT</option>"),v=mk("input",{value:g.value??"",ariaLabel:"Value"}),x=mk("button",{title:"Delete"},"✕");ty.value=g.type;
 nm.onchange=()=>{if(nm.value&&!G[nm.value]){G[nm.value]={...g,title:nm.value};delete G[n];snap();ui()}};ty.onchange=()=>{g.type=ty.value;snap();ui()};v.oninput=()=>{g.value=g.type=="NUMBER"?+v.value:v.value;draw()};v.onchange=()=>snap();x.onclick=()=>{delete G[n];snap();ui()};r.append(nm,ty,v,x);B.append(r)});
@@ -238,6 +239,27 @@ if(!blob){blob=new Blob([text],{type:"application/json"});name=name.replace(/\.z
 const pj=()=>JSON.stringify(P,null,2);
 $("#dj").onclick=()=>save(slug()+".json",async()=>new Blob([pj()],{type:"application/json"}),pj());
 $("#dz").onclick=()=>save(slug()+".zip",()=>new JSZip().file("preset.json",pj()).generateAsync({type:"blob"}),pj());
+function anchorPicker(m){const w=mk("div",{className:"f"});w.append(mk("label",{},"Pin to parent (anchor)"));const g=mk("div");g.style.cssText="display:grid;grid-template-columns:repeat(3,34px);gap:3px";const A=[["TOPLEFT","TOP","TOPRIGHT"],["CENTERLEFT","CENTER","CENTERRIGHT"],["BOTTOMLEFT","BOTTOM","BOTTOMRIGHT"]],cur=m.position_anchor||"TOPLEFT";
+A.forEach((row,r)=>row.forEach((a,c)=>{const on=a==cur,b=mk("button",{title:a,ariaLabel:"Anchor "+a},`<span style="display:block;margin:auto;width:10px;height:10px;border-radius:3px;background:${on?"#fff":"var(--mu)"}"></span>`);b.style.cssText=`height:28px;padding:0;${on?"background:var(--ac);border-color:var(--ac)":""}`;b.onclick=()=>pin(m,a,c,r);g.append(b)}));
+w.append(g,mk("p",{className:"note"},"Click a cell to pin the layer to that edge or corner of its parent. It stays where it is now and keeps that distance when the widget size changes. TOP (top center) is unconfirmed in the docs."));return w}
+function pin(m,a,c,r){const K=["position_padding_left","position_padding_top","position_padding_right","position_padding_bottom","position_offset_x","position_offset_y"],g=m.internal_toggles||{};if(K.concat("position_anchor").some(k=>g[k]))return alert("This layer’s position uses a formula or global. Set those fields back to Value first.");
+const el=$(`[data-p="${sel.join()}"]`);if(!el)return;const cr=$("#cv").getBoundingClientRect(),R=rectOf(el,cr),pe=el.parentElement,B=pe.id=="cv"?{x:0,y:0,w:P.preset_info.width,h:P.preset_info.height}:rectOf(pe,cr),x=R.x-B.x,y=R.y-B.y;
+m.position_anchor=a;K.forEach(k=>m[k]=0);
+if(c==0)m.position_padding_left=Math.round(x);else if(c==2)m.position_padding_right=Math.round(B.w-x-R.w);else m.position_offset_x=Math.round(x-(B.w-R.w)/2);
+if(r==0)m.position_padding_top=Math.round(y);else if(r==2)m.position_padding_bottom=Math.round(B.h-y-R.h);else m.position_offset_y=Math.round(y-(B.h-R.h)/2);
+snap();ui()}
+const cmp=(a,b)=>{for(let i=0;i<Math.min(a.length,b.length);i++)if(a[i]!=b[i])return b[i]-a[i];return b.length-a.length};
+function delAll(){if(!sels.length)return;[...sels].sort(cmp).forEach(s=>{kids(getM(s.slice(0,-1))).splice(s[s.length-1],1)});sel=[];sels=[];snap();ui()}
+const grab=()=>sels.map(s=>JSON.parse(JSON.stringify(getM(s))));
+function doPaste(items){items=items||clip;if(!items||!items.length)return;const m=sels.length?getM(sel):root(),inside=!sels.length||isC(m)||m.internal_type=="StackLayerModule",host=inside?m:getM(sel.slice(0,-1)),base=inside?(sels.length?sel:[]):sel.slice(0,-1),added=[];
+items.forEach(it=>{const g=it.internal_toggles||{};if(!g.position_offset_x&&!g.position_offset_y){it.position_offset_x=(+it.position_offset_x||0)+12;it.position_offset_y=(+it.position_offset_y||0)+12}const c=JSON.parse(JSON.stringify(it));kids(host).push(c);added.push(base.concat(kids(host).length-1))});sels=added;sel=added[added.length-1];snap();ui()}
+const typing=()=>/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+addEventListener("copy",e=>{if(typing()||!sels.length)return;e.preventDefault();clip=grab();e.clipboardData.setData("text/plain",JSON.stringify({kwgt_studio:clip}))});
+addEventListener("cut",e=>{if(typing()||!sels.length)return;e.preventDefault();clip=grab();e.clipboardData.setData("text/plain",JSON.stringify({kwgt_studio:clip}));delAll()});
+addEventListener("paste",e=>{if(typing())return;let it;try{it=JSON.parse(e.clipboardData.getData("text")).kwgt_studio}catch(_){}e.preventDefault();doPaste(Array.isArray(it)?it:undefined)});
+$("#cp").onclick=()=>{if(!sels.length)return;clip=grab();try{navigator.clipboard.writeText(JSON.stringify({kwgt_studio:clip}))}catch(e){}};$("#pa").onclick=()=>doPaste();$("#dl").onclick=delAll;
+$("#rf").onchange=e=>{const f=e.target.files[0];if(!f)return;if(refImg)URL.revokeObjectURL(refImg);refImg=URL.createObjectURL(f);draw()};$("#ro").oninput=e=>{refOp=e.target.value/100;draw()};$("#rc").onclick=()=>{refImg=null;$("#rf").value="";draw()};$("#bk").onchange=e=>{bk=+e.target.value;draw()};
+document.fonts&&document.fonts.load("16px Roboto").then(draw);
 addEventListener("resize",()=>{fit();draw()});setInterval(draw,1000);
 fit();ui();
 </script></body></html>
